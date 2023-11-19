@@ -44,7 +44,7 @@ void printBoth(FILE *fp, char *string)
 /**
 * STRUCT: tcp_header
  *
-* DESCRIPTION: Structure to represent the TCP header for the simulated handshake.
+* DESCRIPTION: Structure to represent the TCP header.
 **/
 struct TCP_header
 {
@@ -52,8 +52,8 @@ struct TCP_header
     uint16_t dest_port;
     uint32_t seq_num;
     uint32_t ack_num;
-    uint16_t data_offset;
-    uint16_t flags;
+    uint8_t data_offset;
+    uint8_t flags;
     uint16_t window;
     uint16_t checksum;
     uint16_t urg_ptr;
@@ -125,12 +125,13 @@ void setHeader(struct TCP_header *header, uint16_t src_port, uint16_t dest_port)
 {
     header->src_port = src_port;
     header->dest_port = dest_port;
-    header->seq_num = 0;
+    header->seq_num = ((uint32_t)rand() << 16) | (uint32_t)rand();
     header->ack_num = 0;
     header->data_offset = 0;
     header->flags = 0;
-    header->window = 0;
-    header->checksum = 0;
+    header->flags |= 1 << 1;
+    header->window = 17520;
+    header->checksum = 0xFFFF;
     header->urg_ptr = 0;
 }
 
@@ -145,9 +146,15 @@ void setHeader(struct TCP_header *header, uint16_t src_port, uint16_t dest_port)
 int main(int argc, char *argv[])
 {
    int rv = 0;
+   file = fopen("output_client.txt", "w");
+   if (file == NULL)
+   {
+        printf("ERR: could not open file\n");
+        rv = -1;
+   }
    if (argc < 2) 
    {
-    printf("ERR: port number not provided\n");
+    printBoth(file, "ERR: port number not provided\n");
     return -1;
    }
    int port = atoi(argv[1]);
@@ -156,12 +163,7 @@ int main(int argc, char *argv[])
    int tcp = SOCK_STREAM;
    int sock = 0;
 
-   file = fopen("output_client.txt", "w");
-   if (file == NULL)
-   {
-      printBoth(file, "ERR: could not open file\n");
-      rv = -1;
-   }
+   
 
    sock = createSocket(ipv4, tcp);
    if (sock >= 0 && rv == 0)
@@ -170,48 +172,38 @@ int main(int argc, char *argv[])
       
       if (connectServer(sock, ipv4, port, ip_address) >= 0 && rv == 0)
       {
-         struct sockaddr_in client_addr;
-         socklen_t len = sizeof(client_addr);
-        struct TCP_header header;
-        setHeader(&header, 0, port);
+        /* get client port */
+        struct sockaddr_in clientSock;
+        socklen_t addressLength = sizeof(clientSock);
+        if (getsockname(sock, (struct sockaddr *)&clientSock, &addressLength) == 0) 
+        {
+            uint16_t clientPort = ntohs(clientSock.sin_port);
+            printBoth(file, "client port acquired\n");
+            /* create tcp header */
+            struct TCP_header header;
+            setHeader(&header, clientPort, port);
+        }
+        else
+        {
+            printBoth(file, "ERR: getting socket name failed\n");
+            close(sock);
+            fclose(file);
+            rv = -1;
+        }
 
-
-
-
-//         printBoth(file, "Connected to server\n");
-//
-//         FILE *f = fopen("file_client.jpeg", "wb");
-//         if (f != NULL)
-//         {
-//               char buff[1000];
-//               int received = 0;
-//               printBoth(file, "receiving file...\n");
-//               while ((received = recv(sock, buff, sizeof(buff), 0)) > 0)
-//               {
-//                  fwrite(buff, 1, received, f);
-//               }
-//               printBoth(file, "file received\n");
-//               fclose(f);
-//         }
-//         else
-//         {
-//               printBoth(file, "ERR: could not open file\n");
-//               rv = -1;
-//         }
-
-         close(sock);
-         printBoth(file, "connection to server closed\n");
+        close(sock);
+        printBoth(file, "connection to server closed\n");
       }
       else
       {
-         printBoth(file, "ERR: connection to server failed\n");
-         rv = -1;
+        printBoth(file, "ERR: connection to server failed\n");
+        rv = -1;
       }
    }
    else
    {
-      printBoth(file, "ERR: socket could not be created\n");
-      rv = -1;
+        printBoth(file, "ERR: socket could not be created\n");
+        rv = -1;
    }
 
    fclose(file);
