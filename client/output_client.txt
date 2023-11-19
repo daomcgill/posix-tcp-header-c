@@ -1,0 +1,5 @@
+socket created
+Connected to server
+receiving file...
+file received
+connection to server closed

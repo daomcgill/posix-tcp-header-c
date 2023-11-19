@@ -1,0 +1,7 @@
+socket created
+socket bound
+listening for connections...
+connection established
+sending file...
+file sent
+connection to client closed
