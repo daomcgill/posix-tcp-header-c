@@ -1,0 +1,4 @@
+server and client working
+sends tcp handshake
+output to file not complete, but output to console is
+did not test on uhunix
